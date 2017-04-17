@@ -1,0 +1,24 @@
+﻿  Orianna.cpp
+Orianna.cpp(46): warning C4244: 'initialisation' : conversion de 'double' en 'int', perte possible de données
+Orianna.cpp(54): warning C4244: 'initialisation' : conversion de 'double' en 'int', perte possible de données
+Orianna.cpp(62): warning C4244: 'initialisation' : conversion de 'double' en 'int', perte possible de données
+Orianna.cpp(88): warning C4244: 'argument' : conversion de 'int' en 'const float', perte possible de données
+Orianna.cpp(89): warning C4244: 'argument' : conversion de 'int' en 'const float', perte possible de données
+Orianna.cpp(90): warning C4244: 'argument' : conversion de 'int' en 'const float', perte possible de données
+Orianna.cpp(91): warning C4244: 'argument' : conversion de 'int' en 'const float', perte possible de données
+Orianna.cpp(194): warning C4244: 'argument' : conversion de 'int' en 'float', perte possible de données
+Orianna.cpp(211): warning C4244: 'argument' : conversion de 'int' en 'float', perte possible de données
+Orianna.cpp(234): warning C4244: 'argument' : conversion de 'double' en 'float', perte possible de données
+Orianna.cpp(235): warning C4244: 'argument' : conversion de 'double' en 'int', perte possible de données
+Orianna.cpp(235): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+Orianna.cpp(257): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+Orianna.cpp(307): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+Orianna.cpp(308): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+Orianna.cpp(324): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
+     Création de la bibliothèque C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.lib et de l'objet C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.exp
+  Génération de code en cours
+  1 of 137 functions ( 0.7%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    2 functions had inline decision re-evaluated but remain unchanged
+  Fin de la génération du code
+  Orianna - Crazy Ballz.vcxproj -> C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.dll
