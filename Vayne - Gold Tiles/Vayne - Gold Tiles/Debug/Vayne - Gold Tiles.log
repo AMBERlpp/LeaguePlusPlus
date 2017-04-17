@@ -1,0 +1,7 @@
+﻿  Vayne.cpp
+  PluginSDK.cpp
+  Génération de code en cours...
+c:\users\guill\desktop\vayne - gold tiles\vayne - gold tiles\vayne.cpp(39): warning C4715: 'Combo_Q_Cast' : les chemins de contrôle ne retournent pas tous une valeur
+     Création de la bibliothèque C:\Users\guill\Desktop\Vayne - Gold Tiles\Debug\Vayne - Gold Tiles.lib et de l'objet C:\Users\guill\Desktop\Vayne - Gold Tiles\Debug\Vayne - Gold Tiles.exp
+MSVCRTD.lib(exe_main.obj) : error LNK2019: symbole externe non résolu _main référencé dans la fonction "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)
+C:\Users\guill\Desktop\Vayne - Gold Tiles\Debug\Vayne - Gold Tiles.exe : fatal error LNK1120: 1 externes non résolus
