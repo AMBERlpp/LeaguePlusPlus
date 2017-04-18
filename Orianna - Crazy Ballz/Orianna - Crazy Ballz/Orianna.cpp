@@ -22,7 +22,7 @@ IMenu* mainMenu;
 IMenu* Combo;
 IMenuOption* rHit;
 IMenuOption* rForce;
-IMenuOption* rLogic;
+IMenuOption* rKill;
 IMenuOption* wHit;
 IMenuOption* wForce;
 IMenuOption* eHit;
@@ -39,6 +39,12 @@ IMenuOption* eHarass;
 IMenuOption* qHarassMana;
 IMenuOption* wHarassMana;
 IMenuOption* eHarassMana;
+
+class RData {
+public: 
+	int hit;
+	int kill;
+};
 
 double Calcul_W_Damage(IUnit* Target)
 {
@@ -62,6 +68,29 @@ double Calcul_Q_Damage(IUnit* Target)
 	int bonus = 0.5 * myHero->TotalMagicDamage();
 	int total = base[GEntityList->Player()->GetSpellLevel(kSlotQ)] + bonus;
 	return GDamage->CalcMagicDamage(myHero, Target, total);
+}
+
+double Calcul_E_Damage(IUnit* Target)
+{
+	int base[6] = { 0, 60, 90, 120, 150, 180 };
+	int bonus = 0.3 * myHero->TotalMagicDamage();
+	int total = base[GEntityList->Player()->GetSpellLevel(kSlotQ)] + bonus;
+	return GDamage->CalcMagicDamage(myHero, Target, total);
+}
+
+double Calcul_Possible_Damage(IUnit* Target)
+{
+	int totalDmg = 0;
+	if (Q->IsReady())
+		totalDmg = totalDmg + Calcul_Q_Damage(Target);
+	if (W->IsReady())
+		totalDmg = totalDmg + Calcul_W_Damage(Target);
+	if (E->IsReady())
+		totalDmg = totalDmg + Calcul_E_Damage(Target);
+	if (R->IsReady())
+		totalDmg = totalDmg + Calcul_R_Damage(Target);
+
+	return totalDmg;
 }
 
 Vec2 vect2d(Vec2 p1, Vec2 p2)
@@ -126,13 +155,13 @@ void Load_Menu()
 		wCombo = Combo->CheckBox("Use (W)", true);
 		eCombo = Combo->CheckBox("Use (E)", true);
 		rCombo = Combo->CheckBox("Use (R)", true);
-		wHit = Combo->AddInteger("Minimum (W) Hit to Cast", 1, 5, 3);
-		wForce = Combo->CheckBox("Force (W) if hit all unit present", true);
-		eHit = Combo->AddInteger("Minimum (E) Hit to Cast", 1, 5, 2);
-		eForce = Combo->CheckBox("Force (E) if hit all unit present", true);
-		rHit = Combo->AddInteger("Minimum (R) Hit to Cast", 1, 5, 3);
-		rForce = Combo->CheckBox("Force (R) if hit all unit present", true);
-		rLogic = Combo->CheckBox("Added (R) Cast Logic to not waste it", true);
+		wHit = Combo->AddInteger("(W) - Minmum unit hit to Cast", 1, 5, 3);
+		wForce = Combo->CheckBox("(W) - Force if hit maximum unit", true);
+		eHit = Combo->AddInteger("(E) - Minmum unit hit to Cast", 1, 5, 2);
+		eForce = Combo->CheckBox("(E) - Force if hit maximum unit", true);
+		rHit = Combo->AddInteger("(R) - Minmum unit hit to Cast", 1, 5, 3);
+		rForce = Combo->CheckBox("(R) - Force if hit maximum unit", true);
+		rKill = Combo->CheckBox("(R) - Cast to kill single target", true);
 	}
 	Harass = mainMenu->AddMenu(">> Harass <<");
 	{
@@ -199,29 +228,6 @@ int Count_Enemy_Hit_From_Ball(int range, int delay, Vec3 from)
 	return unitHit;
 }
 
-int Count_Enemy_Hit_From_Ball_R(int range, int delay, Vec3 from)
-{
-	int unitHit = 0;
-	IUnit* isUnit = nullptr;
-	for (auto unit : GEntityList->GetAllHeros(false, true))
-	{
-		if (unit->IsValidTarget())
-		{
-			Vec3 predPos;
-			GPrediction->GetFutureUnitPosition(unit, delay, true, predPos);
-			if (GetDistance(predPos, from) < range)
-			{
-				unitHit++;
-				isUnit = unit;
-			}
-		}
-	}
-	if (unitHit == 1 && rLogic->Enabled() && (Calcul_R_Damage(isUnit) + Calcul_W_Damage(isUnit) + Calcul_Q_Damage(isUnit)) < isUnit->GetHealth())
-		unitHit = 0;
-
-	return unitHit;
-}
-
 std::vector<IUnit*> Get_Unit_In_R()
 {
 	std::vector<IUnit*> unitArray;
@@ -239,6 +245,24 @@ std::vector<IUnit*> Get_Unit_In_R()
 	return unitArray;
 }
 
+RData Get_R_Data()
+{
+	std::vector<IUnit*> unitArray;
+	unitArray = Get_Unit_In_R();
+	RData data;
+	data.hit = 0;
+	data.kill = 0;
+
+	for (auto unit : unitArray)
+	{
+		data.hit++;
+		if (Calcul_Possible_Damage(unit) > unit->GetHealth())
+			data.kill++;
+	}
+
+	return data;
+}
+
 void Cast_R()
 {
 	std::vector<IUnit*> unitHit = Get_Unit_In_R();
@@ -251,6 +275,7 @@ void Cast_R()
 
 void Cast_E_To_Best_Ally()
 {
+	RData data = Get_R_Data();
 	for (auto ally : GEntityList->GetAllHeros(true, false))
 	{
 		int distance = GetDistance(ally->GetPosition(), myPos);
@@ -259,9 +284,8 @@ void Cast_E_To_Best_Ally()
 			Vec3 predPos;
 			double Delay = distance / E->Speed();
 			GPrediction->GetFutureUnitPosition(ally, Delay, true, predPos);
-			int unitHit = Count_Enemy_Hit_From_Ball_R(R->Radius(), Delay, ally->GetPosition());
 			int unitPresent = Count_Enemy_In_Range(3000);
-			if (R->IsReady() && ((unitHit == unitPresent && rForce->Enabled()) || unitHit >= rHit->GetInteger()))
+			if (R->IsReady() && ((data.hit == unitPresent && rForce->Enabled()) || data.hit >= rHit->GetInteger()))
 				E->CastOnUnit(ally);
 		}
 	}
@@ -303,16 +327,16 @@ void Load_Combo()
 		return;
 
 	Vec3 predPos; int maxHit;
-	if (R->IsReady() && rCombo->Enabled())
+	if (R->IsReady() && rCombo->Enabled() && (myHero->GetMana() > (R->ManaCost() + E->ManaCost()) || myHero->GetMana() > (R->ManaCost() + Q->ManaCost())))
 	{
-		if(E->IsReady() && eCombo->Enabled())
+		if(E->IsReady() && eCombo->Enabled() && myHero->GetMana() > (R->ManaCost() + E->ManaCost()))
 			Cast_E_To_Best_Ally();
 
 		GPrediction->FindBestCastPosition(Q->Range(), R->Radius(), false, false, true, predPos, maxHit);
-		if(maxHit > 0 && GetDistance(predPos, myPos) < Q->Range())
+		if(myHero->GetMana() > (R->ManaCost() + Q->ManaCost()) && maxHit > 0 && GetDistance(predPos, myPos) < Q->Range())
 			Q->CastOnPosition(predPos);
 	}
-	else if (W->IsReady() && wCombo->Enabled())
+	else if (W->IsReady() && wCombo->Enabled() && myHero->GetMana() > (Q->ManaCost() + W->ManaCost()))
 	{
 		GPrediction->FindBestCastPosition(Q->Range(), W->Radius(), false, false, true, predPos, maxHit);
 		if (maxHit > 0 && GetDistance(predPos, myPos) < Q->Range())
@@ -331,12 +355,15 @@ void Load_Combo()
 	}
 
 	int unitPresent = Count_Enemy_In_Range(3000);
-	int rUnitHit = Count_Enemy_Hit_From_Ball_R(R->Radius(), R->GetDelay(), ballPos);
 	int wUnitHit = Count_Enemy_Hit_From_Ball(W->Radius(), W->GetDelay(), ballPos);
-	if (R->IsReady() && ((rUnitHit == unitPresent && rForce->Enabled() && unitPresent > 0) || rUnitHit >= rHit->GetInteger()))
-		R->CastOnPlayer();
 	if (W->IsReady() && ((wUnitHit == unitPresent && wForce->Enabled() && unitPresent > 0) || wUnitHit >= wHit->GetInteger()))
 		W->CastOnPlayer();
+
+	RData data = Get_R_Data();
+	if (rKill->Enabled() && data.kill > 0)
+		R->CastOnPlayer();
+	else if (data.hit >= rHit->GetInteger() || (rForce->GetInteger() >= unitPresent && data.hit > 1))
+		R->CastOnPlayer();
 }
 
 void Load_Harass()
