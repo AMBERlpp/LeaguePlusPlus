@@ -17,8 +17,8 @@ Orianna.cpp(308): warning C4244: 'argument' : conversion de 'float' en 'int', p
 Orianna.cpp(324): warning C4244: 'argument' : conversion de 'float' en 'int', perte possible de données
      Création de la bibliothèque C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.lib et de l'objet C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.exp
   Génération de code en cours
-  1 of 137 functions ( 0.7%) were compiled, the rest were copied from previous compilation.
+  0 of 137 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
     0 functions were new in current compilation
-    2 functions had inline decision re-evaluated but remain unchanged
+    0 functions had inline decision re-evaluated but remain unchanged
   Fin de la génération du code
   Orianna - Crazy Ballz.vcxproj -> C:\Users\guill\Desktop\L++ Project\Orianna - Crazy Ballz\Release\Orianna - Crazy Ballz.dll

@@ -222,6 +222,33 @@ int Count_Enemy_Hit_From_Ball_R(int range, int delay, Vec3 from)
 	return unitHit;
 }
 
+std::vector<IUnit*> Get_Unit_In_R()
+{
+	std::vector<IUnit*> unitArray;
+
+	for (auto unit : GEntityList->GetAllHeros(false, true))
+	{
+		if (unit->IsValidTarget())
+		{
+			Vec3 predPos;
+			GPrediction->GetFutureUnitPosition(unit, R->GetDelay(), true, predPos);
+			if (GetDistance(predPos, ballPos) < R->Radius())
+				unitArray.push_back(unit);
+		}
+	}
+	return unitArray;
+}
+
+void Cast_R()
+{
+	std::vector<IUnit*> unitHit = Get_Unit_In_R();
+	int hit = unitHit.size();
+	for (auto unit : unitHit)
+	{
+
+	}
+}
+
 void Cast_E_To_Best_Ally()
 {
 	for (auto ally : GEntityList->GetAllHeros(true, false))
@@ -318,14 +345,14 @@ void Load_Harass()
 		return;
 
 	auto Target = GTargetSelector->FindTarget(QuickestKill, SpellDamage, Q->Range());
-	if (Q->IsReady() && qHarass->Enabled() && Target != nullptr && Target->IsValidTarget() && qHarassMana->GetInteger() < myHero->ManaPercent())
+	if (Q->IsReady() && qHarass->Enabled() && Target != nullptr && Target->IsValidTarget() && (float)qHarassMana->GetInteger() < myHero->ManaPercent())
 		Q->CastOnTarget(Target, kHitChanceHigh);
 
 	int wUnitHit = Count_Enemy_Hit_From_Ball(W->Radius(), W->GetDelay(), ballPos);
-	if (W->IsReady() && wHarass->Enabled() && wUnitHit > 0 && wHarassMana->GetInteger() < myHero->ManaPercent())
+	if (W->IsReady() && wHarass->Enabled() && wUnitHit > 0 && (float)wHarassMana->GetInteger() < myHero->ManaPercent())
 		W->CastOnPlayer();
 
-	if (eHarass->Enabled() && eHarassMana->GetInteger() < myHero->ManaPercent())
+	if (eHarass->Enabled() && (float)eHarassMana->GetInteger() < myHero->ManaPercent())
 		Cast_E_To_Damage();
 }
 
