@@ -1,0 +1,6 @@
+﻿  Xayah.cpp
+  PluginSDK.cpp
+  Génération de code en cours...
+     Création de la bibliothèque C:\Users\guill\Desktop\L++ Project\Xayah - White Plume\Debug\Xayah - White Plume.lib et de l'objet C:\Users\guill\Desktop\L++ Project\Xayah - White Plume\Debug\Xayah - White Plume.exp
+MSVCRTD.lib(exe_main.obj) : error LNK2019: symbole externe non résolu _main référencé dans la fonction "int __cdecl invoke_main(void)" (?invoke_main@@YAHXZ)
+C:\Users\guill\Desktop\L++ Project\Xayah - White Plume\Debug\Xayah - White Plume.exe : fatal error LNK1120: 1 externes non résolus
