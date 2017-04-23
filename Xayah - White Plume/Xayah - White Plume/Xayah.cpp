@@ -16,6 +16,9 @@ IMenu* Combo;
 IMenu* JungleSteal;
 IMenu* itemMenu;
 IMenuOption* jungleEnable;
+IMenuOption* jungleQ;
+IMenuOption* jungleW;
+IMenuOption* jungleMana;
 IMenuOption* jungleDraw;
 IMenuOption* qCombo;
 IMenuOption* qType;
@@ -63,9 +66,12 @@ void Load_Menu()
 		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
 		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
 	}
-	JungleSteal = mainMenu->AddMenu(">> Jungle Steal <<");
+	JungleSteal = mainMenu->AddMenu(">> Jungle Clear <<");
 	{
-		jungleEnable = JungleSteal->CheckBox("Use (E)", true);
+		jungleQ = JungleSteal->CheckBox("Use (Q)", true);
+		jungleW = JungleSteal->CheckBox("Use (W)", true);
+		jungleMana = JungleSteal->AddInteger("Minimum Mana", 0, 100, 60);
+		jungleEnable = JungleSteal->CheckBox("Use (E) to kill big mobs", true);
 	}
 	itemMenu = mainMenu->AddMenu(">> Item <<");
 	{
@@ -285,6 +291,14 @@ void Load_JungleSteal()
 			int Percentage = (Damage * 100) / minion->GetHealth();
 			if (Damage >= minion->GetHealth())
 				E->CastOnPlayer();
+
+			if (myHero->ManaPercent() >= (float)jungleMana->GetInteger() && GOrbwalking->GetOrbwalkingMode() == kModeLaneClear)
+			{
+				if (jungleQ->Enabled() && Q->IsReady())
+					Q->CastOnTarget(minion, kHitChanceMedium);
+				if (jungleW->Enabled() && W->IsReady() && GetDistance(minion->GetPosition(), myHero->GetPosition()) < 650)
+					W->CastOnPlayer();
+			}
 		}
 	}
 }
