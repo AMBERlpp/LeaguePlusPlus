@@ -39,6 +39,18 @@ IMenuOption* eHarass;
 IMenuOption* qHarassMana;
 IMenuOption* wHarassMana;
 IMenuOption* eHarassMana;
+//Laneclear
+IMenu* LaneClear;
+IMenuOption* qClear;
+IMenuOption* wClear;
+IMenuOption* clearHit;
+IMenuOption* clearMana;
+//Draw 
+IMenu* Draw;
+IMenuOption* qDraw;
+IMenuOption* wDraw;
+IMenuOption* eDraw;
+IMenuOption* rDraw;
 
 class RData {
 public: 
@@ -137,13 +149,13 @@ void Load_Variable()
 	myHero = GEntityList->Player();
 
 	Q = GPluginSDK->CreateSpell2(kSlotQ, kLineCast, true, true, kCollidesWithYasuoWall);
-	Q->SetSkillshot(0.f, 100.f, 1000.f, 800.f);
+	Q->SetSkillshot(0.f, 100.f, 1200, 800.f);
 	W = GPluginSDK->CreateSpell2(kSlotW, kCircleCast, false, true, kCollidesWithNothing);
 	W->SetSkillshot(0.3f, 250.f, HUGE_VAL, 800.f);
 	E = GPluginSDK->CreateSpell2(kSlotE, kTargetCast, true, false, kCollidesWithNothing);
 	E->SetSkillshot(0.f, 0.f, 1800.f, 1050.f);
 	R = GPluginSDK->CreateSpell2(kSlotR, kCircleCast, false, true, kCollidesWithNothing);
-	R->SetSkillshot(0.5f, 350, HUGE_VAL, 800.f);
+	R->SetSkillshot(0.5f, 400, HUGE_VAL, 800.f);
 }
 
 void Load_Menu()
@@ -171,6 +183,20 @@ void Load_Menu()
 		wHarassMana = Harass->AddInteger("Min mana percent to use", 0, 100, 70);
 		eHarass = Harass->CheckBox("Use (E)", true);
 		eHarassMana = Harass->AddInteger("Min mana percent to use", 0, 100, 70);
+	}
+	LaneClear = mainMenu->AddMenu(">> Lane Clear <<");
+	{
+		qClear = LaneClear->CheckBox("Use (Q)", true);
+		wClear = LaneClear->CheckBox("Use (W)", true);
+		clearHit = LaneClear->AddInteger("Min unit to hit", 1, 5, 2);
+		clearMana = LaneClear->AddInteger("Min mana percent to use", 0, 100, 60);
+	}
+	Draw = mainMenu->AddMenu(">> Drawing <<");
+	{
+		qDraw = Draw->CheckBox("Draw (Q) range", true);
+		wDraw = Draw->CheckBox("Draw (W) range", true);
+		eDraw = Draw->CheckBox("Draw (E) range", true);
+		rDraw = Draw->CheckBox("Draw (R) range", true);
 	}
 }
 
@@ -216,6 +242,22 @@ int Count_Enemy_Hit_From_Ball(int range, int delay, Vec3 from)
 {
 	int unitHit = 0;
 	for (auto unit : GEntityList->GetAllHeros(false, true))
+	{
+		if (unit->IsValidTarget())
+		{
+			Vec3 predPos;
+			GPrediction->GetFutureUnitPosition(unit, delay, true, predPos);
+			if (GetDistance(predPos, from) < range)
+				unitHit++;
+		}
+	}
+	return unitHit;
+}
+
+int Count_Minion_Hit_From_Ball(int range, int delay, Vec3 from)
+{
+	int unitHit = 0;
+	for (auto unit : GEntityList->GetAllMinions(false, true, true))
 	{
 		if (unit->IsValidTarget())
 		{
@@ -332,13 +374,13 @@ void Load_Combo()
 		if(E->IsReady() && eCombo->Enabled() && myHero->GetMana() > (R->ManaCost() + E->ManaCost()))
 			Cast_E_To_Best_Ally();
 
-		GPrediction->FindBestCastPosition(Q->Range(), R->Radius(), false, false, true, predPos, maxHit);
+		Q->FindBestCastPosition(false, true, predPos, maxHit);
 		if(myHero->GetMana() > (R->ManaCost() + Q->ManaCost()) && maxHit > 0 && GetDistance(predPos, myPos) < Q->Range())
 			Q->CastOnPosition(predPos);
 	}
 	else if (W->IsReady() && wCombo->Enabled() && myHero->GetMana() > (Q->ManaCost() + W->ManaCost()))
 	{
-		GPrediction->FindBestCastPosition(Q->Range(), W->Radius(), false, false, true, predPos, maxHit);
+		Q->FindBestCastPosition(false, true, predPos, maxHit);
 		if (maxHit > 0 && GetDistance(predPos, myPos) < Q->Range())
 			Q->CastOnPosition(predPos);
 	}
@@ -383,17 +425,42 @@ void Load_Harass()
 		Cast_E_To_Damage();
 }
 
+void Load_LaneClear()
+{
+	if (GOrbwalking->GetOrbwalkingMode() != kModeLaneClear || (float)clearMana->GetInteger() > myHero->ManaPercent())
+		return;
+
+	Vec3 predPos; int maxHit;
+	Q->FindBestCastPosition(true, true, predPos, maxHit);
+	GPrediction->FindBestCastPosition(Q->Range(), Q->Radius(), true, true, true, predPos, maxHit);
+	if (GetDistance(predPos, myPos) < Q->Range() && maxHit >= clearHit->GetInteger())
+		Q->CastOnPosition(predPos);
+
+	int wUnitHit = Count_Minion_Hit_From_Ball(W->Radius(), W->GetDelay(), ballPos);
+	if (W->IsReady() && wUnitHit >= clearHit->GetInteger())
+		W->CastOnPlayer();
+}
+
 void OnRender()
 {
 	Vec2 startPos; Vec2 endPos; GGame->Projection(myPos, &startPos);  GGame->Projection(ballPos, &endPos);
 	GRender->DrawFilledCircle(ballPos, Vec4(33, 150, 243, 255), 30);
 	GRender->DrawCircle(ballPos, 80, Vec4(33, 150, 243, 255), 10.f);
 	GRender->DrawLine(startPos, endPos, Vec4(33, 150, 243, 255));
+
+	if (qDraw->Enabled() && Q->IsReady())
+		GRender->DrawCircle(myHero->GetPosition(), Q->Range(), Vec4(102, 187, 106, 255));
+	if (wDraw->Enabled() && W->IsReady())
+		GRender->DrawCircle(ballPos, W->Radius(), Vec4(102, 187, 106, 255));
+	if (eDraw->Enabled() && E->IsReady())
+		GRender->DrawCircle(myHero->GetPosition(), E->Range(), Vec4(102, 187, 106, 255));
+	if (rDraw->Enabled() && R->IsReady())
+		GRender->DrawCircle(ballPos, R->Radius(), Vec4(102, 187, 106, 255));
 }
 
 void OnCreateObject(IUnit* Object)
 {
-	if (strstr(Object->GetObjectName(), "missile") && ballFly)
+	if (strstr(Object->GetObjectName(), "missile") && ballFly && GetDistance(ballPos, Object->GetPosition()) < 100)
 	{
 		ballMissile = Object;
 		ballFly = false;
@@ -410,6 +477,7 @@ void GameUpdate()
 	Update_Location();
 	Load_Combo();
 	Load_Harass();
+	Load_LaneClear();
 }
 
 void SpellCast(CastedSpell const& Spell)
