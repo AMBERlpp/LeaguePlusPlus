@@ -11,7 +11,9 @@ IMenu* laneclearMenu;
 IMenu* itemMenu;
 IMenu* drawMenu;
 IMenu* gapMenu;
+IMenu* fleeMenu;
 IMenu* interruptibleMenu;
+IMenuOption* fleeKey;
 IMenuOption* drawTarget;
 IMenuOption* trapOnImobile;
 IMenuOption* gapEnable;
@@ -154,6 +156,10 @@ void Load_Menu()
 		humanizerItem = itemMenu->AddInteger("Humanizer (ms)", 0, 1000, 300);
 
 	}
+	fleeMenu = mainMenu->AddMenu(">> Flee <<");
+	{
+		fleeKey = fleeMenu->AddKey("Flee Key", 0x54);
+	}
 	drawMenu = mainMenu->AddMenu(">> Draw <<");
 	{
 		drawTarget = drawMenu->CheckBox("Draw Target", true);
@@ -185,7 +191,7 @@ void Cast_Item(IUnit* Target)
 
 void Combo()
 {
-	auto Target = GTargetSelector->FindTarget(QuickestKill, PhysicalDamage, Q->Range() + 100);
+	auto Target = GTargetSelector->FindTarget(QuickestKill, PhysicalDamage, Q->Range());
 	
 	currTarget = Target;
 	if (Target == nullptr || !Target->IsValidTarget())
@@ -195,6 +201,7 @@ void Combo()
 		return;
 
 	Cast_Item(Target);
+
 	if (E->IsReady() && eCombo->Enabled())
 	{
 		E->CastOnTarget(Target, kHitChanceVeryHigh);
@@ -293,7 +300,7 @@ void Cast_R()
 	}
 }
 
-PLUGIN_EVENT(void) Render()
+void Render()
 {
 	if (drawTarget->Enabled() && currTarget != nullptr && currTarget->IsValidTarget())
 	{
@@ -304,7 +311,7 @@ PLUGIN_EVENT(void) Render()
 	}
 }
 
-PLUGIN_EVENT(void) Gapcloser(GapCloserSpell const& Spell)
+void Gapcloser(GapCloserSpell const& Spell)
 {
 	if (gapEnable->Enabled() && E->IsReady() && Spell.Sender != nullptr && Spell.Sender->IsValidTarget() && Spell.Sender->IsEnemy(myHero) && GetDistance(Spell.EndPosition, myHero->GetPosition()) < 200)
 	{
@@ -326,7 +333,7 @@ std::function<void()> Item_Delay = [&]() -> void {
 	}
 };
 
-PLUGIN_EVENT(void) BuffAdd(IUnit* Source)
+void BuffAdd(IUnit* Source)
 {
 	if (Source->GetNetworkId() == myHero->GetNetworkId()
 		&& (Source->HasBuffOfType(BUFF_Charm) || Source->HasBuffOfType(BUFF_Fear) || Source->HasBuffOfType(BUFF_Snare)
@@ -340,9 +347,14 @@ PLUGIN_EVENT(void) BuffAdd(IUnit* Source)
 	{
 		W->CastOnPosition(Source->GetPosition());
 	}
+	if (Source == myHero && myHero->HasBuff("caitlynheadshotrangecheck"))
+	{
+		GOrbwalking->ResetAA();
+		GGame->PrintChat("Reset AA CD");
+	}
 }
 
-PLUGIN_EVENT(void) Interruptible(InterruptibleSpell const& Spell)
+void Interruptible(InterruptibleSpell const& Spell)
 {
 	if (interruptEnable->Enabled() && W->IsReady() && Spell.Target->IsValidTarget() && GetDistance(myHero->GetPosition(), Spell.Target->GetPosition()) < W->Range())
 	{
@@ -356,21 +368,36 @@ PLUGIN_EVENT(void) Interruptible(InterruptibleSpell const& Spell)
 	}
 }
 
-PLUGIN_EVENT(void) SpellCast(CastedSpell const& Spell)
+void SpellCast(CastedSpell const& Spell)
 {
 	if (Spell.Caster_ == myHero && std::string(Spell.Name_) == "CaitlynYordleTrap")
 		lastTrap = GGame->Time() * 1000;
 }
 
-PLUGIN_EVENT(void) GameUpdate()
+void Load_Flee()
+{
+	if (GetAsyncKeyState(fleeKey->GetInteger()) >= 0)
+		return;
+
+	GGame->IssueOrder(myHero, kMoveTo, GGame->CursorPosition());
+
+	if (E->IsReady())
+	{
+		Vec3 vector = myHero->GetPosition() - (GGame->CursorPosition() - myHero->GetPosition()).VectorNormalize() * 300;
+		E->CastOnPosition(vector);
+	}
+}
+
+void GameUpdate()
 {
 	Combo();
 	KillSteal();
 	Cast_R();
 	E->SetOverrideRange(eRange->GetInteger());
+	Load_Flee();
 }
 
-PLUGIN_EVENT(void) OrbwalkAfterAttack(IUnit* From, IUnit* To)
+void OrbwalkAfterAttack(IUnit* From, IUnit* To)
 {
 }
 
