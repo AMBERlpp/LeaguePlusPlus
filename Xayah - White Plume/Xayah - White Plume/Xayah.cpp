@@ -5,15 +5,18 @@
 struct SPlume {
 	IUnit* Plume;
 	double startTime;
-}
-;
+};
+
 IUnit* myHero;
 std::vector<SPlume> VPlume;
-
 
 IMenu* mainMenu;
 IMenu* Draw;
 IMenu* Combo;
+IMenu* JungleSteal;
+IMenu* itemMenu;
+IMenuOption* jungleEnable;
+IMenuOption* jungleDraw;
 IMenuOption* qCombo;
 IMenuOption* qType;
 IMenuOption* qRange;
@@ -27,7 +30,6 @@ IMenuOption* drawPlume;
 IMenuOption* drawQ;
 IMenuOption* timePlume;
 IMenuOption* dmgPlume;
-IMenu* itemMenu;
 IMenuOption* youmuuItem;
 IMenuOption* bilgewaterItem;
 IMenuOption* botrkItem;
@@ -61,6 +63,10 @@ void Load_Menu()
 		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
 		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
 	}
+	JungleSteal = mainMenu->AddMenu(">> Jungle Steal <<");
+	{
+		jungleEnable = JungleSteal->CheckBox("Use (E)", true);
+	}
 	itemMenu = mainMenu->AddMenu(">> Item <<");
 	{
 		youmuuItem = itemMenu->CheckBox("Youmuu's Ghostblade - Enable", true);
@@ -76,7 +82,8 @@ void Load_Menu()
 		drawQ = Draw->CheckBox("Draw (Q) Range", true);
 		drawPlume = Draw->AddSelection("Feather: Draw Type", 1, { "snone", "line", "circle" });
 		timePlume = Draw->CheckBox("Feather: Draw Timer", true);
-		dmgPlume = Draw->CheckBox("Feather: Draw Damage %", true);
+		dmgPlume = Draw->CheckBox("Feather: Draw Damage Unit", true);
+		jungleDraw = Draw->CheckBox("Feather: Draw Damage Jungle", true);
 	}
 }
 
@@ -94,6 +101,18 @@ void Load_Variable()
 	BOTRK = GPluginSDK->CreateItemForId(3153, 550);
 	Quicksilver = GPluginSDK->CreateItemForId(3140, 0);
 	Mercurial = GPluginSDK->CreateItemForId(3139, 600);
+}
+
+bool Is_Big_Mob(IUnit* minion)
+{
+	return (strstr(minion->GetObjectName(), "SRU_Blue1") || strstr(minion->GetObjectName(), "SRU_Blue7")
+		|| strstr(minion->GetObjectName(), "SRU_Gromp14") || strstr(minion->GetObjectName(), "SRU_Gromp13")
+		|| strstr(minion->GetObjectName(), "SRU_Murkwolf8") || strstr(minion->GetObjectName(), "SRU_Murkwolf2")
+		|| strstr(minion->GetObjectName(), "SRU_Razorbeak3") || strstr(minion->GetObjectName(), "SRU_Razorbeak9")
+		|| strstr(minion->GetObjectName(), "SRU_Red4") || strstr(minion->GetObjectName(), "SRU_Red10")
+		|| strstr(minion->GetObjectName(), "SRU_Krug11") || strstr(minion->GetObjectName(), "SRU_Krug5")
+		|| strstr(minion->GetObjectName(), "Dragon") || strstr(minion->GetObjectName(), "Baron") 
+		|| strstr(minion->GetObjectName(), "RiftHerald") || strstr(minion->GetObjectName(), "SRU_Krab"));
 }
 
 int GetDistance(Vec3 From, Vec3 To)
@@ -252,10 +271,29 @@ void Update_Plume()
 	}
 }
 
+void Load_JungleSteal()
+{
+	if (!jungleEnable->Enabled())
+		return;
+
+	for (auto minion : GEntityList->GetAllMinions(false, false, true))
+	{
+		if (minion->IsValidTarget() && Is_Big_Mob(minion))
+		{
+			int Hit = Count_E_Hit(minion);
+			double Damage = Calcul_Multiple_E_Damage(minion, Hit);
+			int Percentage = (Damage * 100) / minion->GetHealth();
+			if (Damage >= minion->GetHealth())
+				E->CastOnPlayer();
+		}
+	}
+}
+
 void GameUpdate()
 {
 	Update_Plume();
 	Load_Combo();
+	Load_JungleSteal();
 }
 
 void Render()
@@ -305,6 +343,22 @@ void Render()
 				Vec2 textPos; unit->GetHPBarPosition(textPos);
 				std::string temp = "%.2f%% - " + std::to_string(Hit) + "hit";
 				GRender->DrawTextW(textPos, Vec4(255, 255, 255, 255), temp.c_str(), percent);
+			}
+		}
+	}
+
+	if (jungleDraw->Enabled())
+	{
+		for (auto minion : GEntityList->GetAllMinions(false, false, true))
+		{
+			if (minion->IsValidTarget() && Is_Big_Mob(minion))
+			{
+				int Hit2 = Count_E_Hit(minion);
+				double Damage2 = Calcul_Multiple_E_Damage(minion, Hit2);
+				double percent2 = (Damage2 * 100) / minion->GetHealth();
+				Vec2 textPos; minion->GetHPBarPosition(textPos);
+				std::string temp = "%.2f%% - " + std::to_string(Hit2) + "hit";
+				GRender->DrawTextW(textPos, Vec4(255, 255, 255, 255), temp.c_str(), percent2);
 			}
 		}
 	}
