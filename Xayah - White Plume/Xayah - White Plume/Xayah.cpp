@@ -2,22 +2,31 @@
 #include "Vector3.h"
 #include <string>
 
+struct SPlume {
+	IUnit* Plume;
+	double startTime;
+}
+;
 IUnit* myHero;
-std::vector<IUnit*> Plume;
+std::vector<SPlume> VPlume;
 
 
 IMenu* mainMenu;
 IMenu* Draw;
 IMenu* Combo;
 IMenuOption* qCombo;
+IMenuOption* qType;
 IMenuOption* qRange;
 IMenuOption* wCombo;
+IMenuOption* wRange;
 IMenuOption* eCombo;
 IMenuOption* eHit;
 IMenuOption* eKill;
 IMenuOption* eRoot;
 IMenuOption* drawPlume;
 IMenuOption* drawQ;
+IMenuOption* timePlume;
+IMenuOption* dmgPlume;
 IMenu* itemMenu;
 IMenuOption* youmuuItem;
 IMenuOption* bilgewaterItem;
@@ -46,8 +55,10 @@ void Load_Menu()
 		wCombo = Combo->CheckBox("Use (W)", true);
 		eCombo = Combo->CheckBox("Use (E)", true);
 		qRange = Combo->AddInteger("(Q) Range: Maximum", 300, 1050, 1050);
-		eHit = Combo->AddInteger("(E) Cast: Plume hit target", 1, 10, 3);
-		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Root", 1, 5, 2);
+		qType = Combo->AddSelection("(Q): Type", 0, {"After AA", "Direct" });
+		wRange = Combo->AddInteger("(W) Range: Maximum", 300, 1100, 650);
+		eHit = Combo->AddInteger("(E) Cast: Number Feathers hit Target", 1, 10, 5);
+		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
 		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
 	}
 	itemMenu = mainMenu->AddMenu(">> Item <<");
@@ -63,7 +74,9 @@ void Load_Menu()
 	Draw = mainMenu->AddMenu(">> Draw <<");
 	{
 		drawQ = Draw->CheckBox("Draw (Q) Range", true);
-		drawPlume = Draw->AddSelection("Plume: Draw Type", 1, { "snone", "line", "circle" });
+		drawPlume = Draw->AddSelection("Feather: Draw Type", 1, { "snone", "line", "circle" });
+		timePlume = Draw->CheckBox("Feather: Draw Timer", true);
+		dmgPlume = Draw->CheckBox("Feather: Draw Damage %", true);
 	}
 }
 
@@ -151,9 +164,9 @@ double Calcul_Multiple_E_Damage(IUnit* Target, int Number)
 int Count_E_Hit(IUnit* Target)
 {
 	int nbr = 0;
-	for (auto data : Plume)
+	for (auto data : VPlume)
 	{
-		if (Is_Inside_Rectangle(data->GetPosition(), myHero->GetPosition(), Target->GetPosition(), (data->BoundingRadius() + Target->BoundingRadius() * 2)))
+		if (Is_Inside_Rectangle(data.Plume->GetPosition(), myHero->GetPosition(), Target->GetPosition(), (40 + Target->BoundingRadius() * 2)))
 			nbr++;
 	}
 	return nbr;
@@ -218,10 +231,10 @@ void Load_Combo()
 
 	Cast_Item(Target);
 
-	if (Q->IsReady() && GetDistance(Target->GetPosition(), myHero->GetPosition()) < qRange->GetInteger())
-		Q->CastOnTarget(Target, kHitChanceMedium);
+	if (Q->IsReady() && GetDistance(Target->GetPosition(), myHero->GetPosition()) < qRange->GetInteger() && qType->GetInteger() == 1)
+		Q->CastOnTarget(Target, kHitChanceHigh);
 
-	if (W->IsReady() && GetDistance(Target->GetPosition(), myHero->GetPosition()) < 800)
+	if (W->IsReady() && GetDistance(Target->GetPosition(), myHero->GetPosition()) < wRange->GetInteger())
 		W->CastOnPlayer();
 
 	if (E->IsReady() && Target->IsValidTarget() && Count_E_Hit(Target) >= eHit->GetInteger())
@@ -231,12 +244,11 @@ void Load_Combo()
 
 void Update_Plume()
 {
-	std::vector<IUnit*>::iterator it;
-	for (it = Plume.begin(); it < Plume.end(); it++)
+	std::vector<SPlume>::iterator it;
+	for (it = VPlume.begin(); it < VPlume.end(); it++)
 	{
-		if ((*it)->IsDead())
-			Plume.erase(it);
-
+		if ((it)->Plume->IsDead())
+			VPlume.erase(it);
 	}
 }
 
@@ -252,10 +264,10 @@ void Render()
 		GRender->DrawCircle(myHero->GetPosition(), qRange->GetInteger(), Vec4(0, 77, 64, 255));
 	if (drawPlume->GetInteger() == 1)
 	{
-		for (auto data : Plume)
+		for (auto data : VPlume)
 		{
-			Vec3 C = data->GetPosition() + (data->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (-40);
-			Vec3 D = data->GetPosition() + (data->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (40);
+			Vec3 C = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (-35);
+			Vec3 D = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (35);
 			Vec2 A2; Vec2 B2; Vec2 C2; Vec2 D2; Vec2 From; GGame->Projection(C, &C2); GGame->Projection(D, &D2); GGame->Projection(myHero->GetPosition(), &From);
 			GRender->DrawLine(From, D2, Vec4(0, 150, 136, 255));
 			GRender->DrawLine(From, C2, Vec4(0, 150, 136, 255));
@@ -264,9 +276,36 @@ void Render()
 	} 
 	else if(drawPlume->GetInteger() == 2)
 	{
-		for (auto data : Plume)
+		for (auto data : VPlume)
 		{
-			GRender->DrawCircle(data->GetPosition(), 50, Vec4(0, 150, 136, 255));
+			GRender->DrawCircle(data.Plume->GetPosition(), 50, Vec4(0, 150, 136, 255));
+		}
+	}
+
+	if (timePlume->Enabled())
+	{
+		for (auto data : VPlume)
+		{
+			float Delay = 6.5 - (GGame->Time() - data.startTime);
+			Vec3 tempPos = data.Plume->GetPosition();
+			Vec2 textPos; GGame->Projection(tempPos, &textPos);
+			GRender->DrawTextW(textPos, Vec4(255, 255, 255, 255), "%.2f", Delay);
+		}
+	}
+
+	if (dmgPlume->Enabled())
+	{
+		for (auto unit : GEntityList->GetAllHeros(false, true))
+		{
+			if (unit != nullptr && unit->IsValidTarget())
+			{
+				int Hit = Count_E_Hit(unit);
+				double Dmg = Calcul_Multiple_E_Damage(unit, Hit);
+				double percent = Dmg * 100 / unit->GetHealth();
+				Vec2 textPos; unit->GetHPBarPosition(textPos);
+				std::string temp = "%.2f%% - " + std::to_string(Hit) + "hit";
+				GRender->DrawTextW(textPos, Vec4(255, 255, 255, 255), temp.c_str(), percent);
+			}
 		}
 	}
 }
@@ -274,7 +313,21 @@ void Render()
 void OnCreateObject(IUnit* Object)
 {
 	if (strstr(Object->GetObjectName(), "Feather") && !Object->IsEnemy(myHero))
-		Plume.push_back(Object);
+	{
+		SPlume data;
+		data.Plume = Object;
+		data.startTime = GGame->Time();
+		VPlume.push_back(data);
+	}
+}
+
+void OrbwalkAfterAttack(IUnit* From, IUnit* To)
+{
+	if (From == myHero && To->IsHero())
+	{
+		if (Q->IsReady() && GetDistance(To->GetPosition(), myHero->GetPosition()) < qRange->GetInteger() && qType->GetInteger() == 0)
+			Q->CastOnTarget(To, kHitChanceHigh);
+	}
 }
 
 std::function<void()> Item_Delay = [&]() -> void {
@@ -310,6 +363,7 @@ PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 	GEventManager->AddEventHandler(kEventOnRender, Render);
 	GEventManager->AddEventHandler(kEventOnCreateObject, OnCreateObject);
 	GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
+	GEventManager->AddEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
 }
 
 PLUGIN_API void OnUnload()
@@ -320,4 +374,5 @@ PLUGIN_API void OnUnload()
 	GEventManager->RemoveEventHandler(kEventOnGameUpdate, GameUpdate);
 	GEventManager->RemoveEventHandler(kEventOnRender, Render);
 	GEventManager->RemoveEventHandler(kEventOnBuffAdd, BuffAdd);
+	GEventManager->RemoveEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
 }
