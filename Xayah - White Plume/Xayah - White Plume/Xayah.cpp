@@ -15,6 +15,10 @@ IMenu* Draw;
 IMenu* Combo;
 IMenu* JungleSteal;
 IMenu* itemMenu;
+IMenu* KillSteal;
+IMenuOption* qSteal;
+IMenuOption* eSteal;
+IMenuOption* qeSteal;
 IMenuOption* jungleEnable;
 IMenuOption* jungleQ;
 IMenuOption* jungleW;
@@ -44,6 +48,7 @@ ISpell2* Q;
 ISpell2* W;
 ISpell2* E;
 ISpell2* R;
+ISpell2* tempSpell;
 
 IInventoryItem* Youmuu;
 IInventoryItem* Bilgewater;
@@ -65,6 +70,12 @@ void Load_Menu()
 		eHit = Combo->AddInteger("(E) Cast: Number Feathers hit Target", 1, 10, 5);
 		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
 		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
+	}
+	KillSteal = mainMenu->AddMenu(">> Kill Steal <<");
+	{
+		qSteal = KillSteal->CheckBox("Use (Q)", true);
+		eSteal = KillSteal->CheckBox("Use (Q)", true);
+		qeSteal = KillSteal->CheckBox("Check for (Q) + (E)", true);
 	}
 	JungleSteal = mainMenu->AddMenu(">> Jungle Clear <<");
 	{
@@ -101,6 +112,8 @@ void Load_Variable()
 	Q->SetSkillshot(0.f, 120.f, 1200, 1000.f);
 	W = GPluginSDK->CreateSpell2(kSlotW, kTargetCast, false, false, kCollidesWithNothing);
 	E = GPluginSDK->CreateSpell2(kSlotE, kTargetCast, false, false, kCollidesWithNothing);
+	tempSpell = GPluginSDK->CreateSpell2(kSlotQ, kLineCast, true, false, static_cast<eCollisionFlags> (kCollidesWithYasuoWall | kCollidesWithMinions | kCollidesWithHeroes));
+	tempSpell->SetSkillshot(0.f, 120.f, 1200, 1000.f);
 
 	Youmuu = GPluginSDK->CreateItemForId(3142, 0);
 	Bilgewater = GPluginSDK->CreateItemForId(3144, 550);
@@ -171,6 +184,20 @@ double Calcul_E_Damage(IUnit* Target)
 	return GDamage->CalcPhysicalDamage(myHero, Target, total);
 }
 
+double Calcul_Q_Damage(IUnit* Target)
+{
+	AdvPredictionOutput predOut;
+	tempSpell->RunPrediction(Target, false, static_cast<eCollisionFlags> (kCollidesWithMinions | kCollidesWithHeroes), &predOut);
+	int base[6] = { 0, 80, 120, 160, 200, 240 };
+	double bonus = myHero->BonusDamage();
+	double total = GDamage->CalcPhysicalDamage(myHero, Target, base[GEntityList->Player()->GetSpellLevel(kSlotQ)] + bonus);
+	
+	if (predOut.HitChance == kHitChanceCollision)
+		total = total*0.5;
+
+	return total;
+}
+
 double Calcul_Multiple_E_Damage(IUnit* Target, int Number)
 {
 	if (Number == 0) return 0;
@@ -202,7 +229,7 @@ int Count_Enemy_Root()
 	int nbr = 0;
 	for (auto unit : GEntityList->GetAllHeros(false, true))
 	{
-		if (Count_E_Hit(unit) >= 3)
+		if (unit != nullptr && unit->IsValidTarget() && Count_E_Hit(unit) >= 3)
 			nbr++;
 	}
 	return nbr;
@@ -213,9 +240,12 @@ int Count_Enemy_Killable()
 	int nbr = 0;
 	for (auto unit : GEntityList->GetAllHeros(false, true))
 	{
-		int dmg = Calcul_Multiple_E_Damage(unit, Count_E_Hit(unit));
-		if (dmg > unit->GetHealth())
-			nbr++;
+		if (unit != nullptr && unit->IsValidTarget())
+		{
+			int dmg = Calcul_Multiple_E_Damage(unit, Count_E_Hit(unit));
+			if (dmg > unit->GetHealth())
+				nbr++;
+		}
 	}
 	return nbr;
 }
@@ -279,18 +309,18 @@ void Update_Plume()
 
 void Load_JungleSteal()
 {
-	if (!jungleEnable->Enabled())
-		return;
-
 	for (auto minion : GEntityList->GetAllMinions(false, false, true))
 	{
-		if (minion->IsValidTarget() && Is_Big_Mob(minion))
+		if (minion != nullptr && minion->IsValidTarget() && Is_Big_Mob(minion))
 		{
-			int Hit = Count_E_Hit(minion);
-			double Damage = Calcul_Multiple_E_Damage(minion, Hit);
-			int Percentage = (Damage * 100) / minion->GetHealth();
-			if (Damage >= minion->GetHealth())
-				E->CastOnPlayer();
+			if (jungleEnable->Enabled())
+			{
+				int Hit = Count_E_Hit(minion);
+				double Damage = Calcul_Multiple_E_Damage(minion, Hit);
+				int Percentage = (Damage * 100) / minion->GetHealth();
+				if (Damage >= minion->GetHealth())
+					E->CastOnPlayer();
+			}
 
 			if (myHero->ManaPercent() >= (float)jungleMana->GetInteger() && GOrbwalking->GetOrbwalkingMode() == kModeLaneClear)
 			{
@@ -303,11 +333,39 @@ void Load_JungleSteal()
 	}
 }
 
+void Load_KillSteal()
+{
+	for (auto unit : GEntityList->GetAllHeros(false, true))
+	{
+		if (unit != nullptr && unit->IsValidTarget())
+		{
+			int eHit = Count_E_Hit(unit);
+			if (E->IsReady() && eSteal->Enabled() && Calcul_Multiple_E_Damage(unit, eHit) > unit->GetHealth())
+				E->CastOnPlayer();
+
+			if (GetDistance(unit->GetPosition(), myHero->GetPosition()) < Q->Range() + 100)
+			{
+				if (Q->IsReady() && qSteal->Enabled() && Calcul_Q_Damage(unit) > unit->GetHealth())
+				{
+					Q->CastOnTarget(unit, kHitChanceHigh);
+				}
+				if (Q->IsReady() && E->IsReady() && qSteal->Enabled() && eSteal->Enabled() && qeSteal->Enabled())
+				{
+					double dmg = Calcul_Q_Damage(unit) + Calcul_Multiple_E_Damage(unit, eHit + 2);
+					if(dmg > unit->GetHealth())
+						Q->CastOnTarget(unit, kHitChanceHigh);
+				}
+			}
+		}
+	}
+}
+
 void GameUpdate()
 {
 	Update_Plume();
 	Load_Combo();
 	Load_JungleSteal();
+	Load_KillSteal();
 }
 
 void Render()
@@ -393,7 +451,7 @@ void OrbwalkAfterAttack(IUnit* From, IUnit* To)
 {
 	if (From == myHero && To->IsHero())
 	{
-		if (Q->IsReady() && GetDistance(To->GetPosition(), myHero->GetPosition()) < qRange->GetInteger() && qType->GetInteger() == 0)
+		if (Q->IsReady() && GetDistance(To->GetPosition(), myHero->GetPosition()) < qRange->GetInteger() && qType->GetInteger() == 0 && GOrbwalking->GetOrbwalkingMode() == kModeCombo)
 			Q->CastOnTarget(To, kHitChanceHigh);
 	}
 }
