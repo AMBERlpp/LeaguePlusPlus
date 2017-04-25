@@ -324,7 +324,7 @@ void Load_JungleSteal()
 
 			if (myHero->ManaPercent() >= (float)jungleMana->GetInteger() && GOrbwalking->GetOrbwalkingMode() == kModeLaneClear)
 			{
-				if (jungleQ->Enabled() && Q->IsReady())
+				if (jungleQ->Enabled() && Q->IsReady() && GetDistance(minion->GetPosition(), myHero->GetPosition()) < Q->Range()) 
 					Q->CastOnTarget(minion, kHitChanceMedium);
 				if (jungleW->Enabled() && W->IsReady() && GetDistance(minion->GetPosition(), myHero->GetPosition()) < 650)
 					W->CastOnPlayer();
