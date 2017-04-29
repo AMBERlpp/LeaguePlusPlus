@@ -21,6 +21,9 @@
     <ClCompile Include="PluginSDK.cpp">
       <Filter>Fichiers sources</Filter>
     </ClCompile>
+    <ClCompile Include="SpellDatabase.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LPPConstants.h">
@@ -33,6 +36,9 @@
       <Filter>Fichiers de ressources</Filter>
     </ClInclude>
     <ClInclude Include="Vector3.h">
+      <Filter>Fichiers de ressources</Filter>
+    </ClInclude>
+    <ClInclude Include="SpellDatabase.h">
       <Filter>Fichiers de ressources</Filter>
     </ClInclude>
   </ItemGroup>

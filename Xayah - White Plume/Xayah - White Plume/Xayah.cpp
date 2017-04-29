@@ -1,15 +1,17 @@
+#include <string>
 #include "PluginSDK.h"
 #include "Vector3.h"
-#include <string>
+#include "SpellDatabase.h"
 
 struct SPlume {
 	IUnit* Plume;
 	double startTime;
 };
+std::vector<SPlume> VPlume;
+std::map<std::string, IMenuOption*> MenuOptions;
 
 IUnit* myHero;
-std::vector<SPlume> VPlume;
-
+IMenu* rMenu;
 IMenu* mainMenu;
 IMenu* Draw;
 IMenu* Combo;
@@ -17,6 +19,7 @@ IMenu* JungleSteal;
 IMenu* itemMenu;
 IMenu* KillSteal;
 IMenuOption* qSteal;
+IMenuOption* rEnable;
 IMenuOption* eSteal;
 IMenuOption* qeSteal;
 IMenuOption* jungleEnable;
@@ -56,6 +59,16 @@ IInventoryItem* BOTRK;
 IInventoryItem* Quicksilver;
 IInventoryItem* Mercurial;
 
+void AddCheckBox(std::string name, std::string title, bool value)
+{
+	MenuOptions[name] = rMenu->CheckBox(title.c_str(), value);
+}
+
+bool GetMenuBoolean(std::string name)
+{
+	return MenuOptions[name]->Enabled();
+}
+
 void Load_Menu()
 {
 	mainMenu = GPluginSDK->AddMenu("Xayah - White Plume");
@@ -65,11 +78,30 @@ void Load_Menu()
 		wCombo = Combo->CheckBox("Use (W)", true);
 		eCombo = Combo->CheckBox("Use (E)", true);
 		qRange = Combo->AddInteger("(Q) Range: Maximum", 300, 1050, 1050);
-		qType = Combo->AddSelection("(Q): Type", 0, {"After AA", "Direct" });
+		qType = Combo->AddSelection("(Q): Type", 0, { "After AA", "Direct" });
 		wRange = Combo->AddInteger("(W) Range: Maximum", 300, 1100, 650);
 		eHit = Combo->AddInteger("(E) Cast: Number Feathers hit Target", 1, 10, 5);
 		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
 		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
+	}
+	rMenu = mainMenu->AddMenu(">> Ultimate <<");
+	{
+		rEnable = rMenu->CheckBox("Use (R) dodge important Spell", true);
+		for (auto unit : GEntityList->GetAllHeros(false, true))
+		{
+			for (auto champion : SpellDatabase::Champions)
+			{
+				if (std::string(champion.second.DisplayName) == std::string(unit->ChampionName()))
+				{
+					auto spells = champion.second.Spells;
+					for (auto Spell2 : spells)
+					{		
+						std::string Content = std::string(champion.second.DisplayName) + " " + SpellDatabase::Slots[Spell2.Slot] + ": " + std::string(Spell2.Name);
+						AddCheckBox(std::string(Spell2.Name), Content, true);
+					}
+				}
+			}
+		}
 	}
 	KillSteal = mainMenu->AddMenu(">> Kill Steal <<");
 	{
@@ -112,6 +144,7 @@ void Load_Variable()
 	Q->SetSkillshot(0.f, 120.f, 1200, 1000.f);
 	W = GPluginSDK->CreateSpell2(kSlotW, kTargetCast, false, false, kCollidesWithNothing);
 	E = GPluginSDK->CreateSpell2(kSlotE, kTargetCast, false, false, kCollidesWithNothing);
+	R = GPluginSDK->CreateSpell2(kSlotR, kTargetCast, false, false, kCollidesWithNothing);
 	tempSpell = GPluginSDK->CreateSpell2(kSlotQ, kLineCast, true, false, static_cast<eCollisionFlags> (kCollidesWithYasuoWall | kCollidesWithMinions | kCollidesWithHeroes));
 	tempSpell->SetSkillshot(0.f, 120.f, 1200, 1000.f);
 
@@ -324,7 +357,7 @@ void Load_JungleSteal()
 
 			if (myHero->ManaPercent() >= (float)jungleMana->GetInteger() && GOrbwalking->GetOrbwalkingMode() == kModeLaneClear)
 			{
-				if (jungleQ->Enabled() && Q->IsReady())
+				if (jungleQ->Enabled() && Q->IsReady() && GetDistance(minion->GetPosition(), myHero->GetPosition()) < Q->Range())
 					Q->CastOnTarget(minion, kHitChanceMedium);
 				if (jungleW->Enabled() && W->IsReady() && GetDistance(minion->GetPosition(), myHero->GetPosition()) < 650)
 					W->CastOnPlayer();
@@ -469,13 +502,36 @@ std::function<void()> Item_Delay = [&]() -> void {
 	}
 };
 
-PLUGIN_EVENT(void) BuffAdd(IUnit* Source)
+void BuffAdd(IUnit* Source)
 {
 	if (Source->GetNetworkId() == myHero->GetNetworkId()
 		&& (Source->HasBuffOfType(BUFF_Charm) || Source->HasBuffOfType(BUFF_Fear) || Source->HasBuffOfType(BUFF_Snare)
 			|| Source->HasBuffOfType(BUFF_Stun) || Source->HasBuffOfType(BUFF_Taunt)))
 	{
 		GPluginSDK->DelayFunctionCall(humanizerItem->GetInteger(), Item_Delay);
+	}
+}
+
+void SpellCast(CastedSpell const& Spell)
+{
+	if (Spell.Caster_ == nullptr || !R->IsReady() || !rEnable->Enabled())
+		return;
+
+	for (auto champion : SpellDatabase::Champions)
+	{
+		if (std::string(Spell.Caster_->ChampionName()) == std::string(champion.second.DisplayName))
+		{
+			auto spells = champion.second.Spells;
+			for (auto Spell2 : spells)
+			{
+				if (std::string(Spell.Name_) == std::string(Spell2.Name) && GetMenuBoolean(std::string(Spell2.Name)))
+				{
+					GGame->PrintChat((Spell.Name_));
+					if(GetDistance(Spell.EndPosition_, myHero->GetPosition()) < Spell2.Radius || Spell.Target_ == myHero)
+						R->CastOnPosition(Spell.Caster_->GetPosition());
+				}
+			}
+		}
 	}
 }
 
@@ -490,6 +546,7 @@ PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 	GEventManager->AddEventHandler(kEventOnCreateObject, OnCreateObject);
 	GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
 	GEventManager->AddEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
+	GEventManager->AddEventHandler(kEventOnSpellCast, SpellCast);
 }
 
 PLUGIN_API void OnUnload()
@@ -500,5 +557,6 @@ PLUGIN_API void OnUnload()
 	GEventManager->RemoveEventHandler(kEventOnGameUpdate, GameUpdate);
 	GEventManager->RemoveEventHandler(kEventOnRender, Render);
 	GEventManager->RemoveEventHandler(kEventOnBuffAdd, BuffAdd);
+	GEventManager->RemoveEventHandler(kEventOnSpellCast, SpellCast);
 	GEventManager->RemoveEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
 }

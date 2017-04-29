@@ -147,12 +147,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="PluginSDK.cpp" />
+    <ClCompile Include="SpellDatabase.cpp" />
     <ClCompile Include="Xayah.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LPPConstants.h" />
     <ClInclude Include="PluginData.h" />
     <ClInclude Include="PluginSDK.h" />
+    <ClInclude Include="SpellDatabase.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
