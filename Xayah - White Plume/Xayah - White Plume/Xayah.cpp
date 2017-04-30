@@ -15,9 +15,11 @@ IMenu* rMenu;
 IMenu* mainMenu;
 IMenu* Draw;
 IMenu* Combo;
-IMenu* JungleSteal;
+IMenu* JungleClear;
 IMenu* itemMenu;
 IMenu* KillSteal;
+IMenu* LaneClear;
+IMenuOption* eKill;
 IMenuOption* qSteal;
 IMenuOption* rEnable;
 IMenuOption* eSteal;
@@ -34,7 +36,7 @@ IMenuOption* wCombo;
 IMenuOption* wRange;
 IMenuOption* eCombo;
 IMenuOption* eHit;
-IMenuOption* eKill;
+IMenuOption* eKillLane;
 IMenuOption* eRoot;
 IMenuOption* drawPlume;
 IMenuOption* drawQ;
@@ -46,6 +48,10 @@ IMenuOption* botrkItem;
 IMenuOption* quicksilverItem;
 IMenuOption* mercurialItem;
 IMenuOption* humanizerItem;
+IMenuOption* eLaneClear;
+IMenuOption* qLaneClear;
+IMenuOption* qHitLane;
+IMenuOption* LaneClearMana;
 
 ISpell2* Q;
 ISpell2* W;
@@ -80,9 +86,9 @@ void Load_Menu()
 		qRange = Combo->AddInteger("(Q) Range: Maximum", 300, 1050, 1050);
 		qType = Combo->AddSelection("(Q): Type", 0, { "After AA", "Direct" });
 		wRange = Combo->AddInteger("(W) Range: Maximum", 300, 1100, 650);
-		eHit = Combo->AddInteger("(E) Cast: Number Feathers hit Target", 1, 10, 5);
-		eRoot = Combo->AddInteger("(E) Cast: Number Enemy Rootable", 1, 5, 2);
-		eKill = Combo->AddInteger("(E) Cast: Number Enemy Killable", 1, 5, 1);
+		eHit = Combo->AddInteger("(E) Cast: Min Number Feathers hit Target", 1, 10, 5);
+		eRoot = Combo->AddInteger("(E) Cast: Min Number Enemy Rootable", 1, 5, 2);
+		eKill = Combo->AddInteger("(E) Cast: Min Number Enemy Killable", 1, 5, 1);
 	}
 	rMenu = mainMenu->AddMenu(">> Ultimate <<");
 	{
@@ -109,12 +115,20 @@ void Load_Menu()
 		eSteal = KillSteal->CheckBox("Use (Q)", true);
 		qeSteal = KillSteal->CheckBox("Check for (Q) + (E)", true);
 	}
-	JungleSteal = mainMenu->AddMenu(">> Jungle Clear <<");
+	LaneClear = mainMenu->AddMenu(">> Lane Clear <<");
 	{
-		jungleQ = JungleSteal->CheckBox("Use (Q)", true);
-		jungleW = JungleSteal->CheckBox("Use (W)", true);
-		jungleMana = JungleSteal->AddInteger("Minimum Mana", 0, 100, 60);
-		jungleEnable = JungleSteal->CheckBox("Use (E) to kill big mobs", true);
+		LaneClearMana = LaneClear->AddInteger("Mana: Min % to use spells", 0, 100, 60);
+		qLaneClear = LaneClear->CheckBox("Use (Q)", true);
+		qHitLane = LaneClear->AddInteger("(Q) Cast: Min Number Minions Hit", 1, 10, 3);
+		eLaneClear = LaneClear->CheckBox("Use (E)", true);
+		eKillLane = LaneClear->AddInteger("(E) Cast: Min Number Minions Killable", 1, 10, 3);
+	}
+	JungleClear = mainMenu->AddMenu(">> Jungle Clear <<");
+	{
+		jungleQ = JungleClear->CheckBox("Use (Q)", true);
+		jungleW = JungleClear->CheckBox("Use (W)", true);
+		jungleMana = JungleClear->AddInteger("Minimum Mana", 0, 100, 60);
+		jungleEnable = JungleClear->CheckBox("Use (E) to kill big mobs", true);
 	}
 	itemMenu = mainMenu->AddMenu(">> Item <<");
 	{
@@ -283,6 +297,21 @@ int Count_Enemy_Killable()
 	return nbr;
 }
 
+int Count_Minion_Killable()
+{
+	int nbr = 0;
+	for (auto unit : GEntityList->GetAllMinions(false, true, false))
+	{
+		if (unit != nullptr && unit->IsValidTarget())
+		{
+			int dmg = Calcul_Multiple_E_Damage(unit, Count_E_Hit(unit))/2;
+			if (dmg > unit->GetHealth())
+				nbr++;
+		}
+	}
+	return nbr;
+}
+
 void Cast_Item(IUnit* Target)
 {
 	if (youmuuItem->Enabled() && Youmuu->IsOwned() && Youmuu->IsReady())
@@ -313,7 +342,11 @@ void Load_Combo()
 	if (Count_Enemy_Killable() >= eKill->GetInteger())
 		E->CastOnPlayer();
 
-	IUnit* Target = GTargetSelector->FindTarget(QuickestKill, PhysicalDamage, Q->Range());
+	IUnit* Target = GOrbwalking->GetLastTarget();
+
+	if(Target == nullptr || !Target->IsValidTarget())
+		Target = GTargetSelector->FindTarget(QuickestKill, PhysicalDamage, Q->Range());
+	
 	if (Target == nullptr || !Target->IsValidTarget())
 		return;
 
@@ -340,7 +373,7 @@ void Update_Plume()
 	}
 }
 
-void Load_JungleSteal()
+void Load_JungleClear()
 {
 	for (auto minion : GEntityList->GetAllMinions(false, false, true))
 	{
@@ -364,6 +397,24 @@ void Load_JungleSteal()
 			}
 		}
 	}
+}
+
+void Load_LaneClear()
+{
+	if (GOrbwalking->GetOrbwalkingMode() != kModeLaneClear || myHero->ManaPercent() < LaneClearMana->Enabled())
+		return;
+
+	if (eLaneClear->Enabled() && E->IsReady() && Count_Minion_Killable() > eKillLane->GetInteger())
+		E->CastOnPlayer();
+
+	if (qLaneClear->Enabled())
+	{
+		Vec3 predPos; int Hit;
+		Q->FindBestCastPosition(true, true, predPos, Hit);
+		if (Hit > qHitLane->GetInteger() && GetDistance(predPos, myHero->GetPosition()) < Q->Range())
+			Q->CastOnPosition(predPos);
+	}
+
 }
 
 void Load_KillSteal()
@@ -397,7 +448,8 @@ void GameUpdate()
 {
 	Update_Plume();
 	Load_Combo();
-	Load_JungleSteal();
+	Load_JungleClear();
+	Load_LaneClear();
 	Load_KillSteal();
 }
 
@@ -485,7 +537,7 @@ void OrbwalkAfterAttack(IUnit* From, IUnit* To)
 	if (From == myHero && To->IsHero())
 	{
 		if (Q->IsReady() && GetDistance(To->GetPosition(), myHero->GetPosition()) < qRange->GetInteger() && qType->GetInteger() == 0 && GOrbwalking->GetOrbwalkingMode() == kModeCombo)
-			Q->CastOnTarget(To, kHitChanceHigh);
+			Q->CastOnTarget(To, kHitChanceMedium);
 	}
 }
 
@@ -514,21 +566,27 @@ void BuffAdd(IUnit* Source)
 
 void SpellCast(CastedSpell const& Spell)
 {
-	if (Spell.Caster_ == nullptr || !R->IsReady() || !rEnable->Enabled())
+	if (!R->IsReady() || !rEnable->Enabled())
 		return;
-
-	for (auto champion : SpellDatabase::Champions)
+	if (Spell.Caster_ != nullptr && Spell.Caster_->IsHero() && Spell.Caster_->IsEnemy(myHero))
 	{
-		if (std::string(Spell.Caster_->ChampionName()) == std::string(champion.second.DisplayName))
+		for (auto champion : SpellDatabase::Champions)
 		{
-			auto spells = champion.second.Spells;
-			for (auto Spell2 : spells)
+			if (std::string(Spell.Caster_->ChampionName()) == std::string(champion.second.DisplayName))
 			{
-				if (std::string(Spell.Name_) == std::string(Spell2.Name) && GetMenuBoolean(std::string(Spell2.Name)))
+				auto spells = champion.second.Spells;
+				for (auto Spell2 : spells)
 				{
-					GGame->PrintChat((Spell.Name_));
-					if(GetDistance(Spell.EndPosition_, myHero->GetPosition()) < Spell2.Radius || Spell.Target_ == myHero)
-						R->CastOnPosition(Spell.Caster_->GetPosition());
+					if (std::string(Spell.Name_) == std::string(Spell2.Name))
+					{
+						if (Spell.Target_ != nullptr &&  Spell.Target_->GetNetworkId() == myHero->GetNetworkId())
+						{
+							R->CastOnPosition(Spell.Caster_->GetPosition());
+							return;
+						}
+						if (GetMenuBoolean(std::string(Spell2.Name)) && GetDistance(Spell.EndPosition_, myHero->GetPosition()) < Spell2.Radius)
+							R->CastOnPosition(Spell.Caster_->GetPosition());
+					}
 				}
 			}
 		}
