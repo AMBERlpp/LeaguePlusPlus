@@ -3,6 +3,8 @@
 #include "Vector3.h"
 #include "SpellDatabase.h"
 
+double Version = 0.001;
+
 struct SPlume {
 	IUnit* Plume;
 	double startTime;
@@ -143,7 +145,7 @@ void Load_Menu()
 	Draw = mainMenu->AddMenu(">> Draw <<");
 	{
 		drawQ = Draw->CheckBox("Draw (Q) Range", true);
-		drawPlume = Draw->AddSelection("Feather: Draw Type", 1, { "snone", "line", "circle" });
+		drawPlume = Draw->AddSelection("Feather: Draw Type", 1, { "none", "line", "circle" });
 		timePlume = Draw->CheckBox("Feather: Draw Timer", true);
 		dmgPlume = Draw->CheckBox("Feather: Draw Damage Unit", true);
 		jungleDraw = Draw->CheckBox("Feather: Draw Damage Jungle", true);
@@ -200,7 +202,7 @@ Vec2 vect2d(Vec2 p1, Vec2 p2)
 	return temp;
 }
 
-bool pointInRectangle(Vec2 A, Vec2 B, Vec2 C, Vec2 D, Vec2 m)
+bool pointInPolygon(Vec2 A, Vec2 B, Vec2 C, Vec2 D, Vec2 m)
 {
 	Vec2 AB = vect2d(A, B);  float C1 = -1 * (AB.y*A.x + AB.x*A.y); float  D1 = (AB.y*m.x + AB.x*m.y) + C1;
 	Vec2 AD = vect2d(A, D);  float C2 = -1 * (AD.y*A.x + AD.x*A.y); float D2 = (AD.y*m.x + AD.x*m.y) + C2;
@@ -217,7 +219,18 @@ bool Is_Inside_Rectangle(Vec3 From, Vec3 To, Vec3 pointTest, int radius)
 	Vec3 B = From + (From - To).VectorNormalize().Perpendicular() * (mediumRadius); Vec2 B1 = B.To2D();
 	Vec3 C = To + (To - From).VectorNormalize().Perpendicular() * (-mediumRadius); Vec2 C1 = C.To2D();
 	Vec3 D = To + (To - From).VectorNormalize().Perpendicular() * (mediumRadius); Vec2 D1 = D.To2D();
-	return pointInRectangle(A1, B1, C1, D1, pointTest2);
+	return pointInPolygon(A1, B1, C1, D1, pointTest2);
+}
+
+bool Is_Inside_Cone(Vec3 From, Vec3 To, Vec3 pointTest, int radius)
+{
+	int mediumRadius = radius / 2;
+	Vec2 pointTest2 = pointTest.To2D();
+	Vec3 A = From; Vec2 A1 = A.To2D();
+	Vec3 B = From; Vec2 B1 = B.To2D();
+	Vec3 C = To + (To - From).VectorNormalize().Perpendicular() * (-mediumRadius); Vec2 C1 = C.To2D();
+	Vec3 D = To + (To - From).VectorNormalize().Perpendicular() * (mediumRadius); Vec2 D1 = D.To2D();
+	return pointInPolygon(A1, B1, C1, D1, pointTest2);
 }
 
 double Calcul_E_Damage(IUnit* Target)
@@ -461,8 +474,8 @@ void Render()
 	{
 		for (auto data : VPlume)
 		{
-			Vec3 C = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (-35);
-			Vec3 D = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (35);
+			Vec3 C = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (-20);
+			Vec3 D = data.Plume->GetPosition() + (data.Plume->GetPosition() - myHero->GetPosition()).VectorNormalize().Perpendicular() * (20);
 			Vec2 A2; Vec2 B2; Vec2 C2; Vec2 D2; Vec2 From; GGame->Projection(C, &C2); GGame->Projection(D, &D2); GGame->Projection(myHero->GetPosition(), &From);
 			GRender->DrawLine(From, D2, Vec4(0, 150, 136, 255));
 			GRender->DrawLine(From, C2, Vec4(0, 150, 136, 255));
@@ -568,6 +581,7 @@ void SpellCast(CastedSpell const& Spell)
 {
 	if (!R->IsReady() || !rEnable->Enabled())
 		return;
+
 	if (Spell.Caster_ != nullptr && Spell.Caster_->IsHero() && Spell.Caster_->IsEnemy(myHero))
 	{
 		for (auto champion : SpellDatabase::Champions)
@@ -579,13 +593,26 @@ void SpellCast(CastedSpell const& Spell)
 				{
 					if (std::string(Spell.Name_) == std::string(Spell2.Name))
 					{
-						if (Spell.Target_ != nullptr &&  Spell.Target_->GetNetworkId() == myHero->GetNetworkId())
+						if (Spell2.SpellType == kTargetCast && Spell.Target_->GetNetworkId() == myHero->GetNetworkId())
 						{
 							R->CastOnPosition(Spell.Caster_->GetPosition());
 							return;
 						}
-						if (GetMenuBoolean(std::string(Spell2.Name)) && GetDistance(Spell.EndPosition_, myHero->GetPosition()) < Spell2.Radius)
+						if(Spell2.SpellType == kLineCast && Is_Inside_Rectangle(Spell.Caster_->GetPosition(), Spell.EndPosition_, myHero->GetPosition(), Spell2.Radius))
+						{
 							R->CastOnPosition(Spell.Caster_->GetPosition());
+							return;
+						}
+						if(Spell2.SpellType == kConeCast && Is_Inside_Cone(Spell.Caster_->GetPosition(), Spell.EndPosition_, myHero->GetPosition(), Spell2.Radius))
+						{
+							R->CastOnPosition(Spell.Caster_->GetPosition());
+							return;
+						}
+						if(Spell2.SpellType == kCircleCast && GetDistance(myHero->GetPosition(), Spell.EndPosition_) < Spell2.Radius + myHero->BoundingRadius())
+						{
+							R->CastOnPosition(Spell.Caster_->GetPosition());
+							return;
+						}
 					}
 				}
 			}
@@ -593,18 +620,35 @@ void SpellCast(CastedSpell const& Spell)
 	}
 }
 
+std::function<void()> Message_Delay = [&]() -> void {
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Xayah White Plume - </font><font color=\"#D50000\">New version available, Download it in the Database</b></font>");
+};
+
 PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 {
 	PluginSDKSetup(PluginSDK);
 	Load_Menu();
 	Load_Variable();
-	GGame->PrintChat("<font color=\"#009688\"><b>Xayah White Plume</font><font color=\"#4DB6AC\"> is successfuly loaded</b></font>");
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Xayah White Plume - </font><font color=\"#CE93D8\"> Successfuly loaded !</b></font>");
 	GEventManager->AddEventHandler(kEventOnGameUpdate, GameUpdate);
 	GEventManager->AddEventHandler(kEventOnRender, Render);
 	GEventManager->AddEventHandler(kEventOnCreateObject, OnCreateObject);
 	GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
 	GEventManager->AddEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
 	GEventManager->AddEventHandler(kEventOnSpellCast, SpellCast);
+
+	std::string file;
+	GPluginSDK->ReadFileFromURL("https://raw.githubusercontent.com/AMBERlpp/LeaguePlusPlus/master/Xayah%20-%20White%20Plume/Xayah%20-%20White%20Plume/Xayah.version", file);
+	double onlineVersion = std::stod(file);
+	
+	if (onlineVersion != Version)
+	{
+		GPluginSDK->DelayFunctionCall(1000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(3000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(5000, Message_Delay);
+	}
+	else
+		GGame->PrintChat("<font color=\"#AB47BC\"><b>Xayah White Plume - </font><font color=\"#D50000\">Latest version found. Have a good time !</b></font>");
 }
 
 PLUGIN_API void OnUnload()

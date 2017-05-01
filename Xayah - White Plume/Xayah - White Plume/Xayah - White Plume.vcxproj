@@ -157,6 +157,9 @@
     <ClInclude Include="SpellDatabase.h" />
     <ClInclude Include="Vector3.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Xayah.version" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

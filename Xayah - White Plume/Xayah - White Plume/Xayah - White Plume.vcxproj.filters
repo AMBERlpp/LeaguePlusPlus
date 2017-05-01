@@ -42,4 +42,9 @@
       <Filter>Fichiers de ressources</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Xayah.version">
+      <Filter>Fichiers de ressources</Filter>
+    </None>
+  </ItemGroup>
 </Project>

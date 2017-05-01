@@ -2,6 +2,8 @@
 #include "Vector3.h"
 #include <string>
 
+double Version = 0.001;
+
 IMenu* mainMenu;
 IMenu* comboMenu;
 IMenu* spellMenu;
@@ -350,7 +352,6 @@ void BuffAdd(IUnit* Source)
 	if (Source == myHero && myHero->HasBuff("caitlynheadshotrangecheck"))
 	{
 		GOrbwalking->ResetAA();
-		GGame->PrintChat("Reset AA CD");
 	}
 }
 
@@ -401,12 +402,17 @@ void OrbwalkAfterAttack(IUnit* From, IUnit* To)
 {
 }
 
+std::function<void()> Message_Delay = [&]() -> void {
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Caitlyn Foot Breaker - </font><font color=\"#D50000\">New version available, Download it in the Database</b></font>");
+};
+
+
 PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 {
 	PluginSDKSetup(PluginSDK);
 	Load_Menu();
 	Load_Variable();
-	GGame->PrintChat("<font color=\"#009688\"><b>Caitlyn Foot Breaker</font><font color=\"#4DB6AC\"> is successfuly loaded</b></font>");
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Caitlyn Foot Breaker - </font><font color=\"#D50000\">Successfuly loaded</b></font>");
 	GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
 	GEventManager->AddEventHandler(kEventOnGameUpdate, GameUpdate);
 	GEventManager->AddEventHandler(kEventOnRender, Render);
@@ -414,6 +420,19 @@ PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 	GEventManager->AddEventHandler(kEventOnSpellCast, SpellCast);
 	GEventManager->AddEventHandler(kEventOnGapCloser, Gapcloser);
 	GEventManager->AddEventHandler(kEventOnInterruptible, Interruptible);
+
+	std::string file;
+	GPluginSDK->ReadFileFromURL("https://raw.githubusercontent.com/AMBERlpp/LeaguePlusPlus/master/Caitlyn%20-%20Foot%20Breaker/Caitlyn%20-%20Foot%20Breaker/Caitlyn.version", file);
+	double onlineVersion = std::stod(file);
+
+	if (onlineVersion != Version)
+	{
+		GPluginSDK->DelayFunctionCall(1000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(3000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(5000, Message_Delay);
+	}
+	else
+		GGame->PrintChat("<font color=\"#AB47BC\"><b>Caitlyn Foot Breaker - </font><font color=\"#D50000\">Latest version found. Have a good time !</b></font>");
 }
 
 PLUGIN_API void OnUnload()

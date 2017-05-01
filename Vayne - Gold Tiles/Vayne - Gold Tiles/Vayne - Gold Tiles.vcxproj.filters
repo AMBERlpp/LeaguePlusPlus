@@ -36,4 +36,9 @@
       <Filter>Fichiers de ressources</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Vayne.version">
+      <Filter>Fichiers de ressources</Filter>
+    </None>
+  </ItemGroup>
 </Project>

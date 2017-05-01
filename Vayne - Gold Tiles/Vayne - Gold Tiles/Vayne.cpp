@@ -2,6 +2,8 @@
 #include "Vector3.h"
 #include <string>
 
+double Version = 0.001;
+
 IMenu* mainMenu;
 IMenu* comboMenu;
 IMenu* harassMenu;
@@ -97,7 +99,7 @@ void Load_Menu()
 		}
 		eMenu = spellMenu->AddMenu(">> (E) <<");
 		{
-			eRange = eMenu->AddInteger("(E) max range", 300, 470, 450);
+			eRange = eMenu->AddInteger("(E) max range", 300, 550, 450);
 			eAfterAA = eMenu->CheckBox("Combo - Cast (E) after AA", true);
 		}
 	}
@@ -286,7 +288,7 @@ bool Laneclear_Q_Cast()
 	return false;
 }
 
-PLUGIN_EVENT(void) Render()
+void Render()
 {
 	if (Q->IsReady())
 	{
@@ -311,7 +313,7 @@ std::function<void()> E_Delay(IUnit* Target)
 	return nullptr;
 }
 
-PLUGIN_EVENT(void) Gapcloser(GapCloserSpell const& Spell)
+void Gapcloser(GapCloserSpell const& Spell)
 {
 	if (eGap->Enabled() && E->IsReady() && Spell.Sender != nullptr && Spell.Sender->IsValidTarget() && Spell.Sender->IsEnemy(myHero) && GetDistance(Spell.EndPosition, myPos) < 200)
 	{
@@ -335,7 +337,7 @@ std::function<void()> Item_Delay = [&]() -> void {
 	}
 };
 
-PLUGIN_EVENT(void) BuffAdd(IUnit* Source)
+void BuffAdd(IUnit* Source)
 {
 	if (Source->GetNetworkId() == myHero->GetNetworkId() 
 		&& (Source->HasBuffOfType(BUFF_Charm) || Source->HasBuffOfType(BUFF_Fear) || Source->HasBuffOfType(BUFF_Snare) 
@@ -345,13 +347,13 @@ PLUGIN_EVENT(void) BuffAdd(IUnit* Source)
 	}
 }
 
-PLUGIN_EVENT(void) Interruptible(InterruptibleSpell const& Spell)
+void Interruptible(InterruptibleSpell const& Spell)
 {
 	if (eInterruptible->Enabled() && E->IsReady() && Spell.Target->IsValidTarget() && GetDistance(myPos, Spell.Target->GetPosition()) < E->Range() && Spell.DangerLevel >= kMediumDanger)
 		E->CastOnUnit(Spell.Target);
 }
 
-PLUGIN_EVENT(void) SpellCast(CastedSpell const& Spell)
+void SpellCast(CastedSpell const& Spell)
 {
 	if (qAfterE->Enabled() && Spell.Caster_ == myHero && Combo_Q_Cast() && std::string(Spell.Name_) == "VayneCondemnMissile")
 	{
@@ -360,13 +362,13 @@ PLUGIN_EVENT(void) SpellCast(CastedSpell const& Spell)
 		
 }
 
-PLUGIN_EVENT(void) GameUpdate()
+void GameUpdate()
 {
 	Update_Variable();
 	Combo();
 }
 
-PLUGIN_EVENT(void) OrbwalkAfterAttack(IUnit* From, IUnit* To)
+void OrbwalkAfterAttack(IUnit* From, IUnit* To)
 {
 	if (From == myHero && Laneclear_Q_Cast())
 		Cast_Q(To);
@@ -383,27 +385,36 @@ PLUGIN_EVENT(void) OrbwalkAfterAttack(IUnit* From, IUnit* To)
 	}
 }
 
+std::function<void()> Message_Delay = [&]() -> void {
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Vayne Gold Tiles - </font><font color=\"#D50000\">New version available, Download it in the Database</b></font>");
+};
+
 PLUGIN_API void OnLoad(IPluginSDK* PluginSDK)
 {
 	PluginSDKSetup(PluginSDK);
-	//if (GEntityList->Player()->ChampionName() != "Vayne")
-	//{
-	//	GGame->PrintChat("Vayne not detected - Script not load");
-	//	return;
-	//}
-	//else
-	//{
-		GGame->PrintChat("<font color=\"#009688\"><b>Vayne Gold Tiles</font><font color=\"#4DB6AC\"> is successfuly loaded</b></font>");
-		Load();
-		Load_Menu();
-		GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
-		GEventManager->AddEventHandler(kEventOnGameUpdate, GameUpdate);
-		GEventManager->AddEventHandler(kEventOnRender, Render);
-		GEventManager->AddEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
-		GEventManager->AddEventHandler(kEventOnSpellCast, SpellCast);
-		GEventManager->AddEventHandler(kEventOnGapCloser, Gapcloser);
-		GEventManager->AddEventHandler(kEventOnInterruptible, Interruptible);
-	//}
+	GGame->PrintChat("<font color=\"#AB47BC\"><b>Vayne Gold Tiles - </font><font color=\"#CE93D8\">Successfuly loaded</b></font>");
+	Load();
+	Load_Menu();
+	GEventManager->AddEventHandler(kEventOnBuffAdd, BuffAdd);
+	GEventManager->AddEventHandler(kEventOnGameUpdate, GameUpdate);
+	GEventManager->AddEventHandler(kEventOnRender, Render);
+	GEventManager->AddEventHandler(kEventOrbwalkAfterAttack, OrbwalkAfterAttack);
+	GEventManager->AddEventHandler(kEventOnSpellCast, SpellCast);
+	GEventManager->AddEventHandler(kEventOnGapCloser, Gapcloser);
+	GEventManager->AddEventHandler(kEventOnInterruptible, Interruptible);
+
+	std::string file;
+	GPluginSDK->ReadFileFromURL("https://raw.githubusercontent.com/AMBERlpp/LeaguePlusPlus/master/Vayne%20-%20Gold%20Tiles/Vayne%20-%20Gold%20Tiles/Vayne.version", file);
+	double onlineVersion = std::stod(file);
+
+	if (onlineVersion != Version)
+	{
+		GPluginSDK->DelayFunctionCall(1000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(3000, Message_Delay);
+		GPluginSDK->DelayFunctionCall(5000, Message_Delay);
+	}
+	else
+		GGame->PrintChat("<font color=\"#AB47BC\"><b>Vayne Gold Tiles - </font><font color=\"#D50000\">Latest version found. Have a good time !</b></font>");
 }
 
 PLUGIN_API void OnUnload()

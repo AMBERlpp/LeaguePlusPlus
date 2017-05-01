@@ -137,7 +137,7 @@ std::map<char*, SpellDatabase::Champion> SpellDatabase::Champions{
 	}
 	},
 	{ "Chogath",{
-		"ChoGath",{
+		"Chogath",{
 			{ kSlotQ, "Rupture", "Rupture", 0, false, 1200, 250, 0, 950, false, true, kCircleCast, kCollidesWithNothing },
 			{ kSlotR, "Feast", "Feast", 0, true, 50, 0, 0, 175, false, false, kTargetCast, kCollidesWithNothing }
 		}
