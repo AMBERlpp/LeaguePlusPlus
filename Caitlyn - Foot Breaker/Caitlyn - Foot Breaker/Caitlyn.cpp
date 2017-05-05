@@ -2,7 +2,7 @@
 #include "Vector3.h"
 #include <string>
 
-double Version = 0.001;
+double Version = 0.002;
 
 IMenu* mainMenu;
 IMenu* comboMenu;
@@ -373,6 +373,9 @@ void SpellCast(CastedSpell const& Spell)
 {
 	if (Spell.Caster_ == myHero && std::string(Spell.Name_) == "CaitlynYordleTrap")
 		lastTrap = GGame->Time() * 1000;
+
+	if (Spell.Caster_ == myHero && std::string(Spell.Name_) == "CaitlynEntrapmentMissile")
+		Q->CastOnPosition(Spell.EndPosition_);
 }
 
 void Load_Flee()
