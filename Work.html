@@ -1,42 +1,43 @@
 <!DOCTYPE html>
 <html>
-<head>
-<style>
-#myDIV {
-    width: 100%;
-    padding: 0px 0;
-    text-align: left;
-    margin-top:20px;
-    display: none;
-}
-</style>
-</head>
-<body>
+	<head>
+		<style>
+		#myDIV {
+			width: 100%;
+			padding: 0px 0;
+			text-align: left;
+			margin-top:-20px;
 
-<img src="http://i.imgur.com/NxHtANJ.png" onclick="myFunction()">
+		}
 
-<div id="myDIV" >
-<ul>
-						<li><a href="actualites.php?actu=11" >Immobilier au 1er semestre 2016 :</a></li>
-						<li><a href="actualites.php?actu=10" >Point de conjoncture 2016</a></li>
-						<li><a href="actualites.php?actu=9" >2016 un bon cru pour l’immobilier</a></li>
-						<li><a href="actualites.php?actu=7" >Fiscalité, immobilier 2016</a></li>
-						<li><a href="actualites.php?actu=1" >Les détecteurs de fumées</a></li>
-					</ul>
+		</style>
+	</head>
+	
+	<body>
+		<img src="http://i.imgur.com/NxHtANJ.png" onclick="myFunction()">
 
-</div>
+		<div id="myDIV" style='display: none'>
+			<ul>
+				<li><a href="actualites.php?actu=11" ><font size ="2px" color="#E20031" face="arial"><b>[10-04-2016] Immobilier au 1er semestre 2016</b></font></a></li>
+				<li><a href="actualites.php?actu=10" ><font size ="2px" color="#E20031" face="arial"><b>[10-04-2016] Point de conjoncture 2016</b></font></a></li>
+				<li><a href="actualites.php?actu=9" ><font size ="2px" color="#E20031" face="arial"><b>[10-04-2016] 2016 un bon cru pour l’immobilier</b></font></a></li>
+				<li><a href="actualites.php?actu=7" ><font size ="2px" color="#E20031" face="arial"><b>[10-04-2016] Fiscalité, immobilier 2016</b></font></a></li>
+				<li><a href="actualites.php?actu=1" ><font size ="2px" color="#E20031" face="arial"><b>[10-04-2016] Les détecteurs de fumées</b></font></a></li>
+			</ul>
+
+		</div>
 
 
-<script>
-function myFunction() {
-    var x = document.getElementById('myDIV');
-    if (x.style.display === 'none') {
-        x.style.display = 'block';
-    } else {
-        x.style.display = 'none';
-    }
-}
-</script>
-
-</body>
+		<script>
+			function myFunction() 
+			{
+				var x = document.getElementById('myDIV');
+				if (x.style.display === 'none') {
+					x.style.display = 'block';
+				} else {
+					x.style.display = 'none';
+				}
+			}
+		</script>
+	</body>
 </html>
